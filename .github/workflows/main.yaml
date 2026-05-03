@@ -1,50 +1,28 @@
-name: CI/CD Full Pipeline
+name: DevOps Pipeline
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
 
 jobs:
-  deploy:
+  build-scan:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # 🔥 AWS LOGIN (FIXED)
-    - name: Configure AWS
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: eu-north-1   # ✅ direct fix
+      # 🐳 Build Docker Image
+      - name: Build Docker Image
+        run: docker build -t my-app .
 
-    # 🔥 ECR LOGIN
-    - name: Login to ECR
-      id: ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    # 🔥 BUILD IMAGE
-    - name: Build Image
-      run: docker build -t devops-app .
-
-    # 🔥 TAG IMAGE
-    - name: Tag Image
-      run: |
-        docker tag devops-app:latest \
-        ${{ steps.ecr.outputs.registry }}/devops-app:latest
-
-    # 🔥 PUSH IMAGE
-    - name: Push Image
-      run: |
-        docker push \
-        ${{ steps.ecr.outputs.registry }}/devops-app:latest
-
-    # 🔥 ECS DEPLOY
-    - name: Deploy to ECS
-      run: |
-        aws ecs update-service \
-          --cluster default \
-          --service devops-service \
-          --force-new-deployment
+      # 🔐 Trivy Scan
+      - name: Run Trivy Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'my-app'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
