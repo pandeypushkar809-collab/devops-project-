@@ -1,8 +1,1 @@
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("DevOps Pipeline Running 🚀");
-});
-
-app.listen(3000);
+res.send("Version 2 🚀")

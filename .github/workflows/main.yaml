@@ -1,27 +1,45 @@
-name: CI Pipeline
+name: CI/CD Full Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Code
+    - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Setup Node
-      uses: actions/setup-node@v3
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v2
       with:
-        node-version: "18"
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Install Dependencies
-      run: npm install
+    - name: Login to ECR
+      id: ecr
+      uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Run App (Test)
-      run: node app.js & sleep 5
+    - name: Build Image
+      run: docker build -t devops-app .
 
-    - name: Success Message
-      run: echo "Build + Test Passed ✅"
+    - name: Tag Image
+      run: |
+        docker tag devops-app:latest \
+        ${{ steps.ecr.outputs.registry }}/devops-app:latest
+
+    - name: Push Image
+      run: |
+        docker push \
+        ${{ steps.ecr.outputs.registry }}/devops-app:latest
+
+    # 🔥 NEW STEP (AUTO DEPLOY)
+    - name: Deploy to ECS
+      run: |
+        aws ecs update-service \
+          --cluster ${{ secrets.ECS_CLUSTER }} \
+          --service ${{ secrets.ECS_SERVICE }} \
+          --force-new-deployment
