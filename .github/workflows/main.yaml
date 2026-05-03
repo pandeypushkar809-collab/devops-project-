@@ -12,34 +12,39 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
+    # 🔥 AWS LOGIN (FIXED)
     - name: Configure AWS
       uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: eu-north-1
+        aws-region: eu-north-1   # ✅ direct fix
 
+    # 🔥 ECR LOGIN
     - name: Login to ECR
       id: ecr
       uses: aws-actions/amazon-ecr-login@v1
 
+    # 🔥 BUILD IMAGE
     - name: Build Image
       run: docker build -t devops-app .
 
+    # 🔥 TAG IMAGE
     - name: Tag Image
       run: |
         docker tag devops-app:latest \
         ${{ steps.ecr.outputs.registry }}/devops-app:latest
 
+    # 🔥 PUSH IMAGE
     - name: Push Image
       run: |
         docker push \
         ${{ steps.ecr.outputs.registry }}/devops-app:latest
 
-    # 🔥 NEW STEP (AUTO DEPLOY)
+    # 🔥 ECS DEPLOY
     - name: Deploy to ECS
       run: |
         aws ecs update-service \
-          --cluster ${{ secrets.ECS_CLUSTER }} \
-          --service ${{ secrets.ECS_SERVICE }} \
+          --cluster default \
+          --service devops-service \
           --force-new-deployment
